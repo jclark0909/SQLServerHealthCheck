@@ -1,0 +1,31 @@
+--Run once for each database
+
+SELECT O.Name as TableName, b.name as IndexName, b.type_desc, ps.fragment_count, ps.page_count, ps.avg_fragmentation_in_percent, ICCount.Column_Count,
+	IC1.Column_Name as Col1_Column_Name, IC1.is_computed as Col1_is_computed, IC1.is_identity as Col1_is_identity,
+	IC2.Column_Name as Col2_Column_Name, IC2.is_computed as Col2_is_computed, IC2.is_identity as Col2_is_identity,
+	IC3.Column_Name as Col3_Column_Name, IC3.is_computed as Col3_is_computed, IC3.is_identity as Col3_is_identity
+FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS ps
+	INNER JOIN sys.indexes AS b ON ps.OBJECT_ID = b.OBJECT_ID
+		AND ps.index_id = b.index_id
+	INNER JOIN sys.objects O ON b.object_ID = O.object_ID
+	INNER JOIN (SELECT IC.object_ID, IC.index_ID, Count(*) AS Column_Count
+		FROM sys.index_columns IC
+		GROUP BY IC.object_ID, IC.index_ID) ICCount ON b.object_ID = ICCount.object_ID AND b.index_ID = ICCount.index_ID
+	INNER JOIN (SELECT TC.Name as Column_Name, TC.is_computed, TC.is_identity, IC.object_ID, IC.index_id
+		FROM sys.index_columns IC
+			INNER JOIN sys.columns TC ON IC.object_ID = TC.object_ID 
+				AND IC.column_id = TC.column_ID
+		WHERE IC.index_column_ID = 1) IC1 ON b.object_id = IC1.object_ID AND b.index_ID = IC1.index_ID
+	LEFT JOIN (SELECT TC.Name as Column_Name, TC.is_computed, TC.is_identity, IC.object_ID, IC.index_id
+		FROM sys.index_columns IC
+			INNER JOIN sys.columns TC ON IC.object_ID = TC.object_ID 
+				AND IC.column_id = TC.column_ID
+		WHERE IC.index_column_ID = 2) IC2 ON b.object_id = IC2.object_ID AND b.index_ID = IC2.index_ID
+	LEFT JOIN (SELECT TC.Name as Column_Name, TC.is_computed, TC.is_identity, IC.object_ID, IC.index_id
+		FROM sys.index_columns IC
+			INNER JOIN sys.columns TC ON IC.object_ID = TC.object_ID 
+				AND IC.column_id = TC.column_ID
+		WHERE IC.index_column_ID = 3) IC3 ON b.object_id = IC3.object_ID AND b.index_ID = IC3.index_ID
+ORDER BY ps.OBJECT_ID
+
+

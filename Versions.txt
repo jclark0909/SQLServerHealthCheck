@@ -1,0 +1,8 @@
+
+SELECT 'Edition' = SERVERPROPERTY('Edition')
+	,'ProductLevel' = CONVERT(VarChar(10),SERVERPROPERTY('ProductLevel'))
+	, 'Version' = CONVERT(VarChar(20),SERVERPROPERTY('ProductVersion'))
+	, 'MajorVersion' = LEFT(CONVERT(VarChar(20),SERVERPROPERTY('ProductVersion')), CHARINDEX('.', CONVERT(VarChar(20),SERVERPROPERTY('ProductVersion')))-1)
+	, 'MinorVersion' = SUBSTRING(CONVERT(VarChar(20),SERVERPROPERTY('ProductVersion')), CHARINDEX('.', CONVERT(VarChar(20),SERVERPROPERTY('ProductVersion')))+1, 1)
+	, 'Build' = SUBSTRING(CONVERT(VarChar(20),SERVERPROPERTY('ProductVersion')), 6, 4)
+	

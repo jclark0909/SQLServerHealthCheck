@@ -1,0 +1,1 @@
+exec sp_help_log_shipping_monitor_secondary ('secondary server'), ('database name')

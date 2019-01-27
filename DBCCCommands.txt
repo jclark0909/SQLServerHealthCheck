@@ -1,0 +1,88 @@
+DMV + DBCC
+
+Execution Related
+sys.dm_exec_connections
+sys.dm_exec_sessions
+sys.dm_exec_requests
+sys.dm_exec_cached_plans
+sys.dm_exec_query_plans
+sys.dm_exec_sql_text
+sys.dm_exec_query_stats
+Index Related
+sys.dm_db_index_physical_stats
+sys.dm_db_index_usage_stats
+SQL Server Operating System
+sys.dm_os_performance_counters
+sys.dm_os_schedulers
+sys.dm_os_nodes
+sys.dm_os_waiting_tasks
+sys.dm_os_wait_stats
+I/O Related
+Sys.dm_io_virtual_file_stats
+DBCC
+
+
+1.DBCC CHECKALLOC
+DBCC CHECKALLOC checks page usage and allocation in the database. Use this command if allocation errors are found for the database. If you run DBCC CHECKDB, you do not need to run DBCC CHECKALLOC, as DBCC CHECKDB includes the same checks (and more) that DBCC CHECKALLOC performs.
+
+
+2.DBCC CHECKCATALOG
+This command checks for consistency in and between system tables. This command is not executed within the DBCC CHECKDB command, so running this command weekly is recommended.
+
+3.DBCC CHECKCONSTRAINTS
+DBCC CHECKCONSTRAINTS alerts you to any CHECK or constraint violations.
+Use it if you suspect that there are rows in your tables that do not meet the constraint or CHECK constraint rules.
+
+4.DBCC CHECKDB
+A very important DBCC command, DBCC CHECKDB should run on your SQL Server instance on at least a weekly basis. Although each release of SQL Server reduces occurrences of integrity or allocation errors, they still do happen. DBCC CHECKDB includes the same checks as DBCC CHECKALLOC and DBCC CHECKTABLE. DBCC CHECKDB can be rough on concurrency, so be sure to run it at off-peak times.
+
+5.DBCC CHECKTABLE
+DBCC CHECKTABLE is almost identical to DBCC CHECKDB, except that it is performed at the table level, not the database level. DBCC CHECKTABLE verifies index and data page links, index sort order, page pointers, index pointers, data page integrity, and page offsets. DBCC CHECKTABLE uses schema locks by default, but can use the TABLOCK option to acquire a shared table lock. CHECKTABLE also performs object checking using parallelism by default (if on a multi-CPU system).
+
+6.DBCC CHECKFILEGROUP
+DBCC CHECKFILEGROUP works just like DBCC CHECKDB, only DBCC CHECKFILEGROUP checks the specified filegroup for allocation and structural issues. If you have a very large database (this term is relative, and higher end systems may be more apt at performing well with multi-GB or TB systems ) , running DBCC CHECKDB may be time-prohibitive.
+If your database is divided into user defined filegroups, DBCC CHECKFILEGROUP will allow you to isolate your integrity checks, as well as stagger them over time.
+
+7.DBCC CHECKIDENT
+DBCC CHECKIDENT returns the current identity value for the specified table, and allows you to correct the identity value if necessary.
+
+8.DBCC DBREINDEX
+If your database allows modifications and has indexes, you should rebuild your indexes on a regular basis. The frequency of your index rebuilds depends on the level of database activity, and how quickly your database and indexes become fragmented. DBCC DBREINDEX allows you to rebuild one or all indexes for a table. Like DBCC CHECKDB, DBCC CHECKTABLE, DBCC CHECKALLOC, running DBREINDEX during peak activity times can significantly reduce concurrency.
+
+9.DBCC INDEXDEFRAG
+Microsoft introduced the excellent DBCC INDEXDEFRAG statement beginning with SQL Server 2000. This DBCC command, unlike DBCC DBREINDEX, does not hold long term locks on indexes. Use DBCC INDEXDEFRAG for indexes that are not very fragmented, otherwise the time this operation takes will be far longer then running DBCC DBREINDEX. In spite of it's ability to run during peak periods, DBCC INDEXDEFRAG has had limited effectiveness compared to DBCC DBREINDEX (or drop/create index).
+
+10.DBCC INPUTBUFFER
+The DBCC INPUTBUFFER command is used to view the last statement sent by the client connection to SQL Server. When calling this DBCC command, you designate the SPID to examine. (SPID is the process ID, which you can get from viewing current activity in Enterprise Manager or executing sp_who. )
+
+11.DBCC OPENTRAN
+DBCC OPENTRAN is a Transact-SQL command that is used to view the oldest running transaction for the selected database. The DBCC command is very useful for troubleshooting orphaned connections (connections still open on the database but disconnected from the application or client), and identification of transactions missing a COMMIT or ROLLBACK. This command also returns the oldest distributed and undistributed replicated transactions, if any exist within the database. If there are no active transactions, no data will be returned. If you are having issues with your transaction log not truncating inactive portions, DBCC OPENTRAN can show if an open transaction may be causing it.
+
+12.DBCC PROCCACHE
+You may not use this too frequently, however it is an interesting DBCC command to execute periodically, particularly when you suspect you have memory issues. DBCC PROCCACHE provides information about the size and usage of the SQL Server procedure cache.
+
+13.DBCC SHOWCONTIG
+The DBCC SHOWCONTIG command reveals the level of fragmentation for a specific table and its indices. This DBCC command is critical to determining if your table or index has internal or external fragmentation. Internal fragmentation concerns how full an 8K page is.
+When a page is underutilized, more I/O operations may be necessary to fulfill a query request than if the page was full, or almost full.
+External fragmentation concerns how contiguous the extents are. There are eight 8K pages per extent, making each extent 64K. Several extents can make up the data of a table or index. If the extents are not physically close to each other, and are not in order, performance could diminish.
+
+14.DBCC SHRINKDATABASE
+DBCC SHRINKDATABASE shrinks the data and log files in your database.
+Avoid executing this command during busy periods in production, as it has a negative impact on I/O and user concurrency. Also remember that you cannot shrink a database past the target percentage specified, shrink smaller than the model database, shrink a file past the original file creation size, or shrink a file size used in an ALTER DATABASE statement.
+
+15.DBCC SHRINKFILE
+DBCC SHRINKFILE allows you to shrink the size of individual data and log files. (Use sp_helpfile to gather database file ids and sizes).
+
+16. DBCC TRACEOFF, TRACEON, TRACESTATUS
+Trace flags are used within SQL Server to temporarily enable or disable specific SQL Server instance characteristics. Traces are enabled using the DBCC TRACEON command, and disabled using DBCC TRACEOFF. DBCC TRACESTATUS is used to displays the status of trace flags. You'll most often see TRACEON used in conjunction with deadlock logging (providing more verbose error information).
+
+17.DBCC USEROPTIONS
+Execute DBCC USEROPTIONS to see what user options are in effect for your specific user connection. This can be helpful if you are trying to determine if you current user options are inconsistent with the database options.
+DBCC OPENTRAN
+DBCC INPUTBUFFER
+DBCC OUTPUTBUFFER
+DBCC PROCCACHE
+DBCC SQLPERF
+DBCC TRACESTATUS
+DBCC USEROPTIONS
+

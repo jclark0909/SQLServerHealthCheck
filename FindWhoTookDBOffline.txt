@@ -1,0 +1,36 @@
+DECLARE @db VARCHAR(100)
+SET @db = '' --Set database name here
+
+IF @db = '' OR (SELECT COUNT(name) FROM sys.databases WHERE name = @db) = 0
+
+
+
+BEGIN
+PRINT 'Please enter a valid database name that exists on '+@@servername+' .'
+RETURN
+END
+
+DECLARE @ErrorLog TABLE ( LogID INT IDENTITY(1, 1) NOT NULL PRIMARY KEY,
+LogDate DATETIME ,
+ProcessInfo NVARCHAR(100),
+LogText NVARCHAR(4000)
+)
+
+INSERT INTO @ErrorLog (LogDate, ProcessInfo, LogText)
+EXEC xp_readerrorlog
+
+SELECT SPID
+,LoginName
+,DB_NAME(databaseid)'DatabaseName'
+,CONVERT(smalldatetime, startTime) 'Time'
+,ApplicationName
+,E.LogText
+FROM sys.fn_trace_gettable(CONVERT(VARCHAR(150), (SELECT TOP 1 [value] FROM sys.fn_trace_getinfo(NULL) WHERE property = 2)), DEFAULT) T
+JOIN sys.trace_events TE ON T.EventClass = TE.trace_event_id
+RIGHT JOIN @ErrorLog E ON SUBSTRING(e.ProcessInfo, 5, LEN(e.ProcessInfo))= SPID
+GROUP BY CONVERT(smalldatetime, startTime), SPID, DatabaseId, LoginName, ApplicationName, name, E.LogText
+HAVING DatabaseID = DB_ID(@db)
+AND TE.name = 'Object:Altered'
+AND E.LogText LIKE '%OFFLINE%'
+ORDER BY CONVERT(smalldatetime, startTime) DESC
+

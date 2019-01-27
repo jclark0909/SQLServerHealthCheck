@@ -1,0 +1,9 @@
+SELECT D.[Name], D.recovery_model_desc, D.create_date, L.LastLogBackup, D.collation_name, D.compatibility_level, D.state_desc, D.is_read_only, D.is_auto_close_on, D.is_auto_shrink_on, D.is_auto_create_stats_on, D.is_auto_update_stats_on
+FROM Master.sys.databases D 
+	LEFT JOIN (SELECT b.database_name, backup_finish_date as LastLogBackup
+		FROM msdb..backupset B
+		WHERE type = 'L'
+		) L ON L.database_name = D.[name]
+WHERE D.Name <> 'tempdb'
+--to see backup history of a specific database(s), change '<>' to '=' and 'tempdb' to name of database(s) separated by a comma
+ORDER BY d.name, CONVERT(varchar, L.LastLogBackup, 102) DESC

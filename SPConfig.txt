@@ -1,0 +1,8 @@
+USE master;
+GO
+EXEC sp_configure 'show advanced option', '1';
+RECONFIGURE
+GO
+
+--Then run sp_configure again to get results
+EXEC sp_configure;

@@ -1,0 +1,32 @@
+SELECT bkSet.Database_Name AS DatabaseName
+	,bkSet.recovery_model AS RecoeryModel
+	,CASE bkSet.Type
+		WHEN 'L' THEN 'TransactionLogBackup'
+		WHEN 'D' THEN 'FullBackup'
+		WHEN 'F' THEN 'FileBackup'
+		WHEN 'I' THEN 'DifferentialBackup'
+		WHEN 'G' THEN 'DifferentialFileBackup'
+		WHEN 'P' THEN 'PartialBackup'
+		WHEN 'Q' THEN 'DifferentialPartialBackup'
+		ELSE NULL
+		END AS BackupType
+	,CAST((bkSet.Backup_Size / 1048576) AS NUMERIC(10, 2)) AS BackupSizeInMB
+	,CAST((bkset.compressed_backup_size / 1048576) AS NUMERIC(10, 2)) AS CompressedSizeMB
+	,bkSet.Backup_Start_Date AS BackupStartDate
+	,bkSet.Backup_Finish_Date AS BackupEndDate
+	,DATEDIFF (mi, bkset.backup_start_date, bkset.backup_finish_Date) AS Duration
+	,MedFam.Physical_Device_Name AS BackupPath
+	,MedSet.Software_Name AS SoftwareUsedForBackup
+	,bkSet.User_Name AS BackupTakenBy
+	,bkSet.Server_Name AS ServerName
+	,bkSet.first_lsn AS [Begin LSN]
+	,bkSet.last_lsn AS [End LSN]
+FROM msdb..BackupMediaFamily MedFam
+INNER JOIN msdb..BackupMediaSet MedSet ON MedFam.Media_Set_ID = MedSet.Media_Set_ID
+INNER JOIN msdb..BackupSet bkSet ON bkSet.Media_Set_ID = MedSet.Media_Set_ID
+WHERE bkSet.Backup_Finish_Date BETWEEN '01-01-2014' AND '12-31-2018'
+	AND bkSet.type <> 'P'
+	--AND bkSet.Database_Name = 'TrafficOpsStaging' 
+	--AND CONVERT(VARCHAR(11),bkSet.Backup_Finish_Date, 112) = '20130411'
+ORDER BY bkSet.Backup_Finish_Date DESC
+

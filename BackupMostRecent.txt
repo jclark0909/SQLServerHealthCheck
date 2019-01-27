@@ -1,0 +1,58 @@
+USE msdb
+
+DECLARE @Backup TABLE (
+	dbname VARCHAR(150)
+	,model VARCHAR(25)
+	,STATE VARCHAR(25)
+	,fulldate DATETIME
+	,diffdate DATETIME
+	,logdate DATETIME
+	)
+
+INSERT @Backup
+
+SELECT s.NAME
+	,s.recovery_model_desc
+	,s.state_desc
+	,MAX(bf.backup_start_date) AS LastFullBackupStart
+	,MAX(bd.backup_start_date) AS LastDiffBackupStart
+	,MAX(bl.backup_start_date) AS LastLogBackupStart
+FROM sys.databases s
+	LEFT JOIN backupset bf ON s.NAME = bf.database_name
+		AND bf.type = 'D'
+	LEFT JOIN backupset bd ON s.NAME = bd.database_name
+		AND bd.type = 'I'
+	LEFT JOIN backupset bl ON s.NAME = bl.database_name
+		AND bl.type = 'L'
+GROUP BY s.NAME
+	,s.recovery_model_desc
+	,s.state_desc
+
+SELECT b.dbname AS DatabaseName
+	,b.model AS "Recovery Model"
+	,b.STATE AS State
+	,bf.backup_start_date AS "Full Start"
+	,bf.backup_finish_date AS "Full End"
+	,CAST((bf.backup_size / 1048576) AS NUMERIC(20, 2)) AS BackupSizeInMB
+	,CAST((bf.compressed_backup_size / 1048576) AS NUMERIC(20, 2)) AS CompressedSizeInMB
+	,(bmf.physical_device_name) AS FullBackupPath
+	,bd.backup_start_date AS "Diff Start"
+	,bd.backup_finish_date AS "Diff End"
+	,(bmd.physical_device_name) AS DiffBackupPath
+	,bl.backup_start_date AS "Log Start"
+	,bl.backup_finish_date AS "Log End"
+	,(bml.physical_device_name) AS LogBackupPath
+FROM @Backup b
+	LEFT JOIN backupset bf ON b.dbname = bf.database_name
+		AND bf.type = 'D'
+		AND b.fulldate = bf.backup_start_date
+	LEFT JOIN backupset bd ON b.dbname = bd.database_name
+		AND bd.type = 'I'
+		AND b.diffdate = bd.backup_start_date
+	LEFT JOIN backupset bl ON b.dbname = bl.database_name
+		AND bl.type = 'L'
+		AND b.logdate = bl.backup_start_date
+	LEFT JOIN backupmediafamily bmf ON bf.media_set_id = bmf.media_set_id
+	LEFT JOIN backupmediafamily bmd ON bd.media_set_id = bmd.media_set_id
+	LEFT JOIN backupmediafamily bml ON bl.media_set_id = bml.media_set_id
+ORDER BY b.dbname ASC

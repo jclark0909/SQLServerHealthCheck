@@ -1,0 +1,7 @@
+Oracle:
+col host_name format a20
+select host_name, INSTANCE_NAME, STARTUP_TIME, STATUS, INSTANCE_NUMBER from v$instance ;
+
+
+SQL Server
+Select @@ servername

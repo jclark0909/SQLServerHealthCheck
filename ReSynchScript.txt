@@ -1,0 +1,18 @@
+declare @username nvarchar(255)
+declare orphanuser_cur cursor for 
+select username = name
+from sysusers
+where issqluser = 1 and (sid is not null and sid <> 0x0)
+and suser_sname(sid) is null
+and name in (select name from master..syslogins)
+order by name
+open orphanuser_cur
+fetch next from orphanuser_cur into @username
+while (@@fetch_status = 0)
+begin
+print @username + ' user name being resynced'
+exec sp_change_users_login 'Update_one', @username, @username
+fetch next from orphanuser_cur into @username
+end
+close orphanuser_cur
+deallocate orphanuser_cur

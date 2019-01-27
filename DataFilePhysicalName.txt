@@ -1,0 +1,12 @@
+select
+DB_NAME(Database_id),
+name,
+physical_name,
+type_desc,
+state_desc,
+size,
+max_size,
+growth,
+is_percent_growth
+from master.sys.master_files
+order by size desc

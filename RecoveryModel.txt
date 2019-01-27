@@ -1,0 +1,13 @@
+	create	table #DBRecovery
+		(
+		db_name		nvarchar(128),
+		recovery	nvarchar(30)
+		)
+
+	Insert	Into #DBRecovery
+	Exec sp_MSforeachdb 'SELECT ''?'', CAST(DATABASEPROPERTYEX(''?'', ''Recovery'') as nvarchar(30))'
+
+	select	*
+	from	#DBRecovery
+
+	drop	table #DBRecovery

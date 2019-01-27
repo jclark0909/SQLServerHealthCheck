@@ -1,0 +1,65 @@
+DECLARE @command1 NVARCHAR(2000)
+
+CREATE TABLE #output (
+	Instance NVARCHAR(50)
+	,DBName VARCHAR(128)
+	,FileID INT
+	,[FileGroup] NVARCHAR(128)
+	,[LogicalName] VARCHAR(128)
+	,[PhysicalName] VARCHAR(300)
+	,[SizeMB] BIGINT
+	,SpaceUsedMB BIGINT
+	,FreeSpaceMB BIGINT
+	,GrowthMB VARCHAR(25)
+	,[MaxsizeMB] VARCHAR(25)
+	)
+
+SET @command1 = 'USE [?];
+
+				INSERT #output
+				SELECT @@ServerName AS Instance
+					,db_name(database_id) AS DBName
+					,mf.file_id
+					,[FileGroup] = CASE 
+						WHEN fg.NAME IS NULL
+							THEN ''LOG''
+						ELSE fg.NAME
+						END
+					,mf.NAME
+					,mf.physical_name
+					,(CAST(mf.size AS BIGINT) * 8 / 1024) Size
+					,CAST(Fileproperty(mf.NAME , ''SpaceUsed'') AS BIGINT) * 8 / 1024 AS SpaceUsed
+					,(CAST(mf.size AS BIGINT) * 8 / 1024) - (CAST(Fileproperty(mf.NAME, ''SpaceUsed'') AS BIGINT) * 8 / 1024) AS FreeSpace
+					,Growth = CASE 
+						WHEN mf.is_percent_growth = 1
+							THEN CAST(mf.growth AS VARCHAR(50)) + '' Percent''
+						ELSE (CAST((mf.growth * 8 / 1024) AS VARCHAR(50))) + '' MB''
+						END
+					,Maxsize = CASE 
+						WHEN mf.max_size = -1
+							OR (CAST(mf.max_size AS BIGINT) * 8 / 1024) = 2097152
+							THEN - 1
+						ELSE (CAST(mf.max_size AS BIGINT) * 8 / 1024)
+						END
+				FROM sys.master_files mf
+				INNER JOIN sys.database_files df ON mf.NAME COLLATE DATABASE_DEFAULT = df.NAME COLLATE DATABASE_DEFAULT 
+					AND mf.physical_name COLLATE DATABASE_DEFAULT = df.physical_name COLLATE DATABASE_DEFAULT 
+				LEFT JOIN sys.filegroups fg ON df.data_space_id = fg.data_space_id'
+
+/*
+Growth
+	0 = File is fixed size and will not grow.
+Maxsize
+	-1 = File will grow until the disk is full.
+*/
+
+				
+
+EXEC sp_MSforeachdb @command1
+
+SELECT *
+FROM #output
+ORDER BY DBName
+
+DROP TABLE #output
+

@@ -1,0 +1,11 @@
+SELECT Db_name(database_id) AS DBName, 
+       mirroring_state_desc, 
+       mirroring_role_desc, 
+       mirroring_partner_name, 
+       mirroring_witness_name, 
+       mirroring_witness_state_desc, 
+       mirroring_connection_timeout 
+FROM   sys.database_mirroring 
+WHERE  mirroring_connection_timeout IS NOT NULL 
+ORDER  BY Db_name(database_id) ASC 
+

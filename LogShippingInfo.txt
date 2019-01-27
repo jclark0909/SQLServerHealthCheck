@@ -1,0 +1,31 @@
+sp_help_log_shipping_secondary_database 'DatabaseName' 
+
+
+
+sp_help_log_shipping_monitor
+This is the how SQL Server generates the Log Shipping Status report by executing sys.sp_help_log_shipping_monitor procedure. This procedure returns the log shipping status (whether it is healthy or not) as well as metadata such as primary and secondary database names, time since last backup, last backup file, last restore file, etc...
+sp_help_log_shipping_monitor_primary
+returns all columns from the log_shipping_monitor_primary table for the specified primary log shipping database. It returns server name, database name, time of last backup, backup threshold, threshold alert and history retention period.
+sp_help_log_shipping_monitor_secondary
+returns all columns from log_shipping_monitor_secondary table for the specified secondary log shipping database. It will return database name, server name, restore threshold, last copied file, time of last copy / restore and history retention period.
+
+Query the MSDB database
+You can monitor the log-shipping jobs and errors from the MSDB tables as well.
+--Query to list out the Log Shipping Jobs
+SELECT * 
+FROM msdb.dbo.sysjobs 
+WHERE category_id = 6
+--Query to check the job history error messages if any
+SELECT * 
+FROM [msdb].[dbo].[sysjobhistory]
+WHERE [message] like '%Operating system error%'
+--Query to check the Log Shipping errors
+SELECT * 
+FROM [msdb].[dbo].[log_shipping_monitor_error_detail]
+WHERE [message] like '%Operating system error%'
+
+
+What Databases are logshipped
+SELECT * 
+FROM   msdb.dbo.log_shipping_primary_databases; 
+

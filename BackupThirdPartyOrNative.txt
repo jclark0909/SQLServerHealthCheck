@@ -1,0 +1,40 @@
+SELECT Cast(database_name AS VARCHAR(30))                               AS
+       [DBName],
+       Cast(user_name AS VARCHAR(30))                                   AS
+       [UserName],
+       Str(Cast(backup_size AS DECIMAL(20, 2)) / 1048576, 10, 2)
+       + ' MB'                                                          AS
+       [BackupSize],
+       Cast(Datediff(n, backup_start_date, backup_finish_date) AS VARCHAR(5))
+       + ' min.'                                                        AS
+       [Duration],
+       Cast(Datediff(dd, backup_finish_date, Getdate()) AS VARCHAR(10)) AS
+       [BackupAge],
+       CONVERT(VARCHAR(20), backup_finish_date)                         AS
+       [FinishDate],
+       physical_device_name                                             AS
+       [Location],
+       case MF.device_type when 2 then 'Native SQL backup' when 7 then
+'Third party' else 'other' end as device_type,
+       CASE type
+         WHEN 'D' THEN 'Database'
+         WHEN 'I' THEN 'Differential Database'
+         WHEN 'L' THEN 'Log'
+         WHEN 'F' THEN 'File or Filegroup'
+         WHEN 'G' THEN 'Differential File'
+         WHEN 'P' THEN 'Partial'
+         WHEN 'Q' THEN 'Differential Partial'
+       END                                                              AS
+       [Backup_Type]
+FROM   master..sysdatabases DB
+       INNER JOIN msdb..backupset BS
+               ON DB.NAME = BS.database_name
+       INNER JOIN msdb..backupmediaset MS
+               ON BS.media_set_id = MS.media_set_id
+       INNER JOIN msdb..backupmediafamily MF
+               ON BS.media_set_id = MF.media_set_id
+WHERE  [type] = 'D'
+--AND BS.backup_finish_date BETWEEN ‘01-01-1900’ AND ‘12-31-2049’
+AND BS.database_name <> 'tempdb'
+ -- AND BS.database_name = '<insert database name>'
+ORDER  BY backup_finish_date DESC;

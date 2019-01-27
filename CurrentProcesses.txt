@@ -1,0 +1,25 @@
+select DB_NAME(database_id) as databasename, host_name, 
+ISNULL(sess.login_name, '')  as login_name,
+req.session_id,
+blocking_session_id, 
+percent_complete,
+ISNULL(CAST(req.start_time AS VARCHAR), '')  as start_time,
+DATEDIFF(MINUTE,ISNULL(req.start_time,GETDATE()),GETDATE())  as elapsed_time, 
+req.reads, 
+req.writes, 
+command,  
+wait_type, 
+wait_time, 
+last_wait_type, 
+--percent_complete, 
+req.cpu_time, 
+req.logical_reads, 
+text,
+query_plan,
+program=program_name
+from sys.dm_exec_requests req
+cross apply sys.dm_exec_sql_text (sql_handle)
+cross apply sys.dm_exec_query_plan (plan_handle) 
+INNER JOIN sys.dm_exec_sessions sess ON req.session_id=sess.session_id
+where req.session_id > 50 and req.session_id != @@SPID 
+--and start_time < dateadd(hh,-1,getdate())

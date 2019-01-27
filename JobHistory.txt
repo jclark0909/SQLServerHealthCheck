@@ -1,0 +1,10 @@
+SELECT J.name as Job_Name, convert(char(10), convert(datetime, convert(char(8),JH.run_date)),120) + ' ' + stuff((stuff((replicate('0', 6 - len(JH.run_time)))+ convert(varchar(6),JH.run_time),3,0,':')),6,0,':') AS run_datetime 
+	,JH.run_duration 
+	,CASE JH.run_status WHEN 0 THEN 'FAILED' WHEN 1 THEN 'SUCCESSFUL' END AS Status 
+FROM msdb..sysjobhistory JH 
+	INNER JOIN msdb..sysjobs J ON JH.job_id = J.job_id
+WHERE JH.step_id = 0 
+	AND convert(datetime, convert(char(8),JH.run_date)) >= DATEADD(d,-10,getdate())
+	AND JH.run_status = 0
+--ORDER BY J.name, JH.run_date, JH.run_time DESC
+ORDER BY JH.run_status, J.name, JH.run_date, JH.run_time DESC

@@ -1,0 +1,19 @@
+--Checking index fragmentation:
+
+
+sUSE DatabaseName
+GO 
+SELECT 
+	DB_NAME(ips.database_id) DBName,
+	OBJECT(ips.object_id) ObjName,
+	I.name InxName,
+	Ips.avg_fragmentation_in_percent
+FROM
+	sys.dm_db_index_physical_stats(db_id(‘DatabaseName’), default, default, default, default) ips
+INNER JOIN 
+	Sys.indexes i 
+	ON
+		ips.index_id = i.index_id AND ips.object_id = i.object_id
+	WHERE
+	Ips.object_id > 99 AND ips.avg_fragmentation_in_percent >= 10 AND ips.index_id > 0
+

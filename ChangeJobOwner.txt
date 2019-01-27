@@ -1,0 +1,24 @@
+--switch database content to MSDB
+use msdb
+go
+
+--FOR SQL 2005 Execute the statement Below:
+-- To see all current Maintenance plans/ SSIS packages stored on server run below:
+		--select * from sysdtspackages90
+-- Change the name to the name of the maintenance plan to be updated
+update sysdtspackages90
+set ownersid = 0x01
+where name like '<Maintenance Plan Name>'
+
+--FOR SQL 2008 Execute the statement Below:
+-- To see all current Maintenance plans/ SSIS packages stored on server run below:
+	--select * from sysssispackages
+-- Change the name to the name of the maintenance plan to be updated
+update sysssispackages
+set ownersid = 0x01
+where name like '<Maintenance Plan Name>'
+
+
+--  After successful Completion of the script Open the maintenance plan that was failing.
+--  Choose save all option.
+--  Verify that all jobs for the plan have been updated to run as SA.

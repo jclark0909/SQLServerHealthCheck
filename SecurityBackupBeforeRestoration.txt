@@ -1,0 +1,231 @@
+/*
+ Note : Run Under database Context
+*/
+declare @Cmd  varchar(max)
+,@SourceDBName varchar(128)
+,@TARGETDBName varchar(128)
+,@DropTargetDBUsers bit
+,@DropTargetDBRoles bit
+,@AddNewDBRoles int
+,@AddNewSchemas int
+--=========
+set @SourceDBName= DB_NAME()   --- 'Corporate_ODS_WFDV3'  --- must 
+set @TARGETDBName=DB_NAME()   ----'Corporate_ODS_WFDV3'
+--=========
+set @DropTargetDBUsers =1 -- default 0, 1- clean ups existing users at target db
+set @DropTargetDBRoles =0 -- default 0, 1- clean up roles at target db
+set @AddNewDBRoles =1 -- default 0,  1- add non existing Roles at target db from source DB
+set @AddNewSchemas =1 -- default 0 , 1- add non existing schemas on target db from source DB
+----
+SET NOCOUNT ON 
+declare @maxid int
+   
+if @SourceDBName<>DB_NAME()
+  Return ;
+if LEN(@TARGETDBName)=0
+  set @TARGETDBName=DB_NAME()
+ 
+if DB_ID(@SourceDBName) < 5
+   Return
+if DB_ID(@TARGETDBName) < 5
+   Return  
+    
+if not exists (select name from master..sysdatabases where name=@TARGETDBName)
+begin
+  set @TARGETDBName=DB_NAME()
+end 
+  IF OBJECT_ID('tempdb..#ResultTBL') IS NOT NULL
+	DROP TABLE #ResultTBL
+
+   CREATE TABLE #ResultTBL(cmd VARCHAR(max),RESULTORDER int);
+
+if @DropTargetDBUsers =1
+begin
+	SELECT 
+	' ---- Drop Target DB Users----
+	use '+ @TARGETDBName +';'+CHAR(10)+'
+	declare @DBschema varchar(500)
+	declare db_schema_Cur cursor for 
+	select [name]  from  sys.schemas where principal_id between 5 and 16383 and name not like ''%repl%''
+	OPEN db_schema_Cur
+	fetch next from db_schema_Cur into @DBschema
+	while (@@FETCH_STATUS =0)
+	begin
+	  EXEC (''ALTER AUTHORIZATION ON SCHEMA::[''+ @DBschema +''] TO [dbo];'')
+	  EXEC (''DROP SCHEMA [''+ @DBschema +''];'')
+	  fetch next from db_schema_Cur into @DBschema
+	end
+	close db_schema_Cur
+	deallocate db_schema_Cur
+	declare @DBUser varchar(500)
+	declare db_user_Cur cursor for 
+	SELECT SP.[name] as dbuser	
+	FROM sys.database_principals SP WHERE SP.[type] in (''U'',''S'',''G'') AND principal_id 	BETWEEN 5 and 16383
+	OPEN db_User_Cur
+	fetch next from db_user_Cur into @DBUser
+	while (@@FETCH_STATUS =0)
+	begin
+		 EXEC (''DROP USER [''+ @DBUser +''];'')
+	  fetch next from db_user_Cur into @DBUser
+	end
+	close db_user_Cur
+	deallocate db_user_Cur
+	'
+end
+if @DropTargetDBRoles =1
+begin
+	SELECT 
+	' ---- Drop Target DB Roles--
+	use '+ db_name() +';'+'
+	declare @DBRole varchar(500)
+	declare db_Role_Cur cursor for 
+	SELECT 	SP.[name] FROM sys.database_principals SP WHERE SP.[type] =''R'' AND principal_id 	BETWEEN 5 and 16383
+	OPEN db_Role_Cur
+	fetch next from db_Role_Cur into @DBRole
+	while (@@FETCH_STATUS =0)
+	begin
+		 EXEC (''DROP ROLE ''+ @DBRole +'';'')
+	  fetch next from db_Role_Cur into @DBRole
+	end
+	close db_Role_Cur
+	deallocate db_Role_Cur
+	'
+end
+---DB Context 
+INSERT INTO #ResultTBL(cmd,RESULTORDER)
+SELECT '--1. DB CONTEXT ---- ' AS CMD,1 AS RESULTORDER
+UNION
+SELECT	'USE' + SPACE(1) + QUOTENAME(@TARGETDBName) +';' AS CMD,	2 AS RESULTORDER
+UNION
+SELECT '--2. Drop Target DB Users--' AS CMD ,3 AS RESULTORDER
+--UNION
+--SELECT IsNULL(CMD,'--Drop Users: None.') AS CMD, 4 AS RESULTORDER FROM #TEMPTBL ---where maxid < @maxid
+UNION
+SELECT '--3. Drop Target DB Roles--' AS CMD,5 AS RESULTORDER
+--UNION
+--SELECT IsNULL(CMD,'--Drop Roles: None.') AS CMD, 6 AS RESULTORDER FROM #TEMPTBL --where maxid >= @maxid
+UNION
+SELECT '--4. Add new DB Roles--' AS CMD,7 AS RESULTORDER
+UNION
+SELECT 
+'IF NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = N'''+ SS.[name]+ ''' AND TYPE=''R'')'+ CHAR(10)+
+'BEGIN '+ CHAR(10)+
+'CREATE ROLE '+ SS.[name] + ' AUTHORIZATION [dbo];' + CHAR(10)+
+'END' as CMD, 8 AS RESULTORDER
+FROM sys.database_principals SS
+WHERE SS.[type] ='R' and SS.[principal_id] Between 5 and 16383 
+AND @AddNewDBRoles =1 ---flag
+UNION
+--- Add source DB Schemas which are not exists in target DB 
+SELECT '--5. Add new Schemas--' AS CMD,9 AS RESULTORDER
+UNION
+SELECT 
+'IF NOT EXISTS (SELECT name FROM sys.schemas WHERE name = N'''+ SS.[name]+ ''')'+ CHAR(10)+
+'BEGIN '+ CHAR(10)+
+' EXEC sys.sp_executesql N''CREATE SCHEMA ['+ SS.[name] + '] AUTHORIZATION [dbo]'''+';' + CHAR(10)+
+'END' as CMD, 10 AS RESULTORDER
+FROM sys.schemas SS
+left Join sys.database_principals SP on SS.principal_id =SP.principal_id and SP.principal_id IS NULL 
+WHERE SS.[schema_id] Between 5 and 16383 AND @AddNewSchemas =1 ---flag
+AND SS.[name] not like 'MSRep%' AND SS.[name] not like 'NAM%' --exclude windows account name schemas
+AND SS.[name] Not in (SELECT [name] FROM sys.database_principals	WHERE [principal_id]  > 4  and [type] ='R') --fix
+UNION
+SELECT '--6. Add Users--' AS CMD,11 AS RESULTORDER
+UNION
+SELECT
+'IF  NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = '''+ SP.[name]+ ''') 		
+  CREATE USER ['+SP.Name+'] FOR LOGIN ['+SP.Name+'] WITH DEFAULT_SCHEMA =dbo;'  AS CMD,12 AS RESULTORDER
+ FROM sys.database_principals SP WHERE SP.[type] ='S'  AND SP.principal_id  BETWEEN 5 and 16383
+UNION 
+SELECT
+ 'IF  NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = '''+ SP.[name]+ ''')'+ CHAR(10)+	
+   ' CREATE USER ['+SP.Name+'] FOR LOGIN ['+SP.Name+'];'  AS CMD,13 AS RESULTORDER 
+ FROM sys.database_principals SP WHERE SP.[type] in ('U','G') AND SP.principal_id  BETWEEN 5 and 16383
+UNION
+SELECT '--7. Add Role Members --' ,14 AS RESULTORDER
+UNION
+SELECT 'EXEC sp_AddRoleMember @rolename ='+ SPACE(1) + QUOTENAME(USER_NAME(rm.role_principal_id), '''') 
++', @membername =' + SPACE(1) + QUOTENAME(USER_NAME(rm.member_principal_id), '''')+';'  AS CMD , 15 AS RESULTORDER
+FROM	sys.database_role_members AS rm WHERE	USER_NAME(rm.member_principal_id) 
+IN (SELECT [name] FROM sys.database_principals	WHERE [principal_id]  > 4  and [type] IN ('G', 'S', 'U'))
+--ORDER BY rm.role_principal_id ASC
+UNION
+SELECT '--8. DB Level Permissions --' AS CMD,16 AS RESULTORDER
+UNION
+SELECT	CASE 
+			WHEN perm.state <> 'W' THEN perm.state_desc --W=Grant With Grant Option
+			ELSE 'GRANT'
+		END
+	+ SPACE(1) + perm.permission_name --CONNECT, etc
+	+ SPACE(1) + 'TO' + SPACE(1) + '[' + USER_NAME(usr.principal_id) + '];' COLLATE database_default --TO <user name>
+	+ CASE 
+			WHEN perm.state <> 'W' THEN SPACE(0) 
+			ELSE SPACE(1) + 'WITH GRANT OPTION' 
+	  END		AS CMD,17 AS RESULTORDER
+FROM	sys.database_permissions AS perm	INNER JOIN	sys.database_principals AS usr	ON perm.grantee_principal_id = usr.principal_id
+--WHERE	usr.name = @OldUser
+WHERE	[perm].[class] =0   -- fix 
+   AND [perm].[major_id] = 0
+	AND [usr].[principal_id] > 4 -- 0 to 4 are system users/schemas
+	AND [usr].[type] IN ('G', 'S', 'U') -- S = SQL user, U = Windows user, G = Windows group
+	And Perm.Permission_name is not null --fix
+UNION
+SELECT '--9. Schema Level Permissions --' AS CMD ,18 AS RESULTORDER
+UNION
+SELECT	CASE 
+			WHEN perm.state <> 'W' THEN perm.state_desc --W=Grant With Grant Option
+			ELSE 'GRANT'
+		END
+	+ SPACE(1) + perm.permission_name --CONNECT, etc
+	+' ON SCHEMA::[' + SCHEMA_NAME(perm.major_id) + ']' 
+	+ SPACE(1) + 'TO' + SPACE(1) + QUOTENAME(USER_NAME(perm.grantee_principal_id)) COLLATE database_default
+	+ CASE 
+			WHEN perm.state <> 'W' THEN ';'+ SPACE(0) 
+			ELSE SPACE(1) + 'WITH GRANT OPTION;'  
+	  END 
+		AS CMD ,		19 AS RESULTORDER
+from sys.database_permissions AS perm
+inner join sys.schemas s
+on perm.major_id = s.[schema_id]
+WHERE class = 3 -- 3 = SCHEMA
+AND USER_NAME(grantee_principal_id) <>'guest'
+  AND USER_NAME(grantee_principal_id) not like '%MS_%'
+--ORDER BY RESULTORDER
+UNION
+SELECT '--10. Object Level Permissions --' AS CMD,20 AS RESULTORDER
+UNION
+SELECT	CASE 	WHEN perm.state <> 'W' THEN perm.state_desc 
+			ELSE 'GRANT'
+		  END
+		+ SPACE(1) + perm.permission_name + SPACE(1) + 'ON ' + QUOTENAME(SCHEMA_NAME(obj.schema_id)) + '.' + QUOTENAME(obj.name) --select, execute, etc on specific objects
+		+ CASE
+				WHEN cl.column_id IS NULL THEN + SPACE(0) 
+				ELSE '(' + QUOTENAME(cl.name) + ')'
+		  END
+		+ SPACE(1) + 'TO' + SPACE(1) + QUOTENAME(USER_NAME(usr.principal_id)) COLLATE database_default
+		+ CASE 
+				WHEN perm.state <> 'W' THEN ';'+ SPACE(0)
+				ELSE SPACE(1) + 'WITH GRANT OPTION;'
+		  END	AS CMD,21 AS RESULTORDER
+FROM	
+	sys.database_permissions AS perm
+		INNER JOIN	sys.objects AS obj ON perm.major_id = obj.[object_id]
+		INNER JOIN	sys.database_principals AS usr ON perm.grantee_principal_id = usr.principal_id
+		LEFT JOIN	sys.columns AS cl	ON cl.column_id = perm.minor_id AND cl.[object_id] = perm.major_id
+	   where SCHEMA_NAME(obj.[schema_id]) <> 'sys'	
+--WHERE	usr.name = @OldUser
+---ORDER BY perm.permission_name ASC, perm.state_desc ASC
+ORDER BY RESULTORDER 
+
+--=========================================================================================
+--Step 11 --- Preserver if any server level permissions exists for the account like VIEW State etc
+-- Step12 --- Verify Orphan accounsts if any  ..
+-- Finally 
+
+SELECT CMD from #ResultTBL ORDER BY RESULTORDER ASC
+
+  IF OBJECT_ID('tempdb..#ResultTBL') IS NOT NULL
+	DROP TABLE #ResultTBL
+
+ SET NOCOUNT OFF
+GO

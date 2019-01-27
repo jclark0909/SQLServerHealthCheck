@@ -1,0 +1,7 @@
+Check avg. fragmentation in percentage.
+SELECT
+    [avg_fragmentation_in_percent]
+FROM sys.dm_db_index_physical_stats (
+    DB_ID (N'ShrinkDB'), OBJECT_ID (N'second'), 1, NULL, 'LIMITED');
+GO
+

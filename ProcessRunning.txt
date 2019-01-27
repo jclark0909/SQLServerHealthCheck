@@ -1,0 +1,39 @@
+select distinct *
+from (
+SELECT s.session_id AS spid ,
+s.[status] ,
+s.login_name AS loginName ,
+s.[host_name] AS hostName ,
+DB_NAME(s2.dbid) AS dbName ,
+r.command ,
+s.cpu_time AS cpuTime ,
+s.reads + s.writes AS diskIO ,
+s.last_request_end_time AS lastBatch ,
+s.[program_name] AS programName ,
+s.session_id ,
+r.request_id ,
+CASE s.transaction_isolation_level
+WHEN 0 THEN 'Unspecified'
+WHEN 1 THEN 'ReadUncommitted'
+WHEN 2 THEN 'ReadCommitted'
+WHEN 3 THEN 'Repeatable'
+WHEN 4 THEN 'Serializable'
+WHEN 5 THEN 'Snapshot'
+END AS transactionIsolationLevel ,
+OBJECT_NAME(t.objectid) AS objectName ,
+t.[text] AS lastSQLText,
+w.blocking_session_id,
+r.percent_complete,
+r.estimated_completion_time,
+r.status as request_status,
+r.wait_type
+FROM sys.dm_exec_sessions AS s
+LEFT JOIN sys.dm_exec_requests AS r ON r.session_id = s.session_id
+LEFT JOIN sys.dm_exec_connections AS c ON c.session_id = s.session_id
+CROSS APPLY sys.dm_exec_sql_text(c.most_recent_sql_handle) AS t
+inner join sys.sysprocesses s2 on s2.spid = s.session_id
+LEFT join sys.dm_os_waiting_tasks w on w.session_id = s.session_id
+WHERE s.is_user_process = 1
+) a
+--where a.spid = 72
+order by a.blocking_session_id desc

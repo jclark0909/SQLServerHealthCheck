@@ -1,0 +1,29 @@
+SELECT B.database_name, B.backup_start_date, B.backup_finish_date
+
+FROM msdb..backupset B
+
+/* 
+How to change type 
+type = 'D' (Full Backups)
+type = 'I' (Incremental Backups)
+type = 'L' (Transaction Log Backups)
+*/ 
+
+WHERE type = 'L' 
+
+/*
+Change X in DATEADD(d,-X,getdate()) to the number of days you want to look back
+So DATEADD(d,-30,getdate()) will look back 30 days
+*/
+
+AND B.backup_start_date >= DATEADD(d,-30,getdate())
+
+/*
+This will query all databases both system and user
+If you want to query a specific database change this like the following
+AND B.database_name = 'master'
+*/ 
+
+AND B.database_name <> 'tempdb' 
+
+ORDER BY B.backup_finish_date DESC
